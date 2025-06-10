@@ -2,9 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import admin from 'firebase-admin';
 
 // --- ส่วนเริ่มต้นการเชื่อมต่อ Firebase ---
-// ตรวจสอบว่าเคยเชื่อมต่อแล้วหรือยัง ถ้ายังไม่เคย ให้เชื่อมต่อใหม่
 if (!admin.apps.length) {
-  // นำข้อมูล Service Account จาก Environment Variable มาใช้งาน
   const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!);
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
@@ -13,18 +11,28 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 // --- สิ้นสุดส่วนการเชื่อมต่อ ---
 
+// ===================================================================
+// === ส่วนใหม่: กำหนดค่าเวลาของแต่ละเครื่องซักผ้า (นาที) ===
+// ===================================================================
+const machineDurations: { [key: number]: number } = {
+  1: 25, // เครื่องที่ 1 ใช้เวลา 1 นาที
+  2: 25, // เครื่องที่ 2 ใช้เวลา 25 นาที
+  3: 30, // เครื่องที่ 3 ใช้เวลา 30 นาที
+  4: 45, // เครื่องที่ 4 ใช้เวลา 45 นาที
+};
+// ===================================================================
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const stateString = searchParams.get('state');
 
   if (!code) {
-    console.error("Authorization code not found.");
     return NextResponse.redirect(new URL('/?error=NoCode', request.url));
   }
 
   try {
-    // 1. แลก code เป็น Access Token
+    // ... (ส่วนแลก Token และดึง User ID เหมือนเดิม) ...
     const tokenUrl = 'https://api.line.me/oauth2/v2.1/token';
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -33,40 +41,31 @@ export async function GET(request: NextRequest) {
       client_id: process.env.NEXT_PUBLIC_LINE_CHANNEL_ID!,
       client_secret: process.env.LINE_CHANNEL_SECRET!,
     });
-
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params,
-    });
-
+    const response = await fetch(tokenUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
     const tokens = await response.json();
     if (!response.ok) throw new Error(tokens.error_description || 'Failed to exchange token');
 
-    // 2. ถอดรหัส id_token เพื่อเอา User ID
     const idToken = tokens.id_token;
     const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
     const userId = payload.sub;
 
-    // 3. ดึงหมายเลขเครื่องที่เลือก
     const originalState = JSON.parse(stateString || '{}');
     const machine = originalState.machine;
 
-    // --- ส่วนใหม่: บันทึกข้อมูลลง Firestore ---
-    console.log('Saving timer to Firestore...');
-    const washDurationMinutes = 25;
+    // --- ส่วนที่แก้ไข: การคำนวณเวลาสิ้นสุด ---
+    // ดึงเวลาของเครื่องที่เลือกจากรายการที่เราตั้งไว้ ถ้าไม่เจอก็ใช้ 25 นาทีเป็นค่าเริ่มต้น
+    const washDurationMinutes = machineDurations[machine] || 25; 
     const endTime = new Date(Date.now() + washDurationMinutes * 60 * 1000);
+    // --- สิ้นสุดส่วนที่แก้ไข ---
 
+    // --- ส่วนการบันทึกลงฐานข้อมูล (เหมือนเดิม) ---
     await db.collection('timers').add({
       user_id: userId,
       machine_id: machine,
       end_time: endTime,
-      status: 'pending' // สถานะเริ่มต้นคือ 'รอดำเนินการ'
+      status: 'pending'
     });
-    console.log('Successfully saved timer for user:', userId);
-    // --- สิ้นสุดส่วนใหม่ ---
 
-    // 4. ส่งต่อไปหน้า "สำเร็จ"
     const successUrl = new URL(`/success?machine=${machine}`, request.url);
     return NextResponse.redirect(successUrl);
 
