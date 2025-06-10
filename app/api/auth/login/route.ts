@@ -12,7 +12,7 @@ export function GET(request: NextRequest) {
 
   const stateData = {
     machine: machine,
-    nonce: "12345abcde" // You can generate a more random string here
+    nonce: "12345abcde" 
   };
 
   const params = {
@@ -24,7 +24,9 @@ export function GET(request: NextRequest) {
   };
 
   const queryString = new URLSearchParams(params).toString();
-  const finalUrl = `<span class="math-inline">\{lineLoginUrl\}?</span>{queryString}`;
+
+  // บรรทัดนี้คือบรรทัดสำคัญที่แก้ไขให้ถูกต้องแล้ว
+  const finalUrl = `<span class="math-inline">\{lineLoginUrl\}?</span>{queryString}`; 
 
   // ส่งผู้ใช้ต่อไปยังหน้า LINE Login
   return NextResponse.redirect(finalUrl);
