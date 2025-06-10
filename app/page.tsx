@@ -5,30 +5,14 @@ import { useState } from 'react';
 export default function HomePage() {
   const [selectedMachine, setSelectedMachine] = useState<number | null>(null);
 
+  // ฟังก์ชัน handleLogin จะง่ายลงมาก แค่ส่งไปที่หลังบ้านของเรา
   const handleLogin = () => {
     if (!selectedMachine) {
       alert("กรุณาเลือกเครื่องซักผ้าก่อนค่ะ");
       return;
     }
-
-    const lineLoginUrl = "https://access.line.me/oauth2/v2.1/authorize";
-    
-    const stateData = {
-      machine: selectedMachine,
-      nonce: "12345abcde" 
-    };
-    
-    const params = {
-      response_type: "code",
-      client_id: process.env.NEXT_PUBLIC_LINE_CHANNEL_ID!,
-      redirect_uri: `https://line-timer-project.vercel.app/api/auth/callback`,
-      state: JSON.stringify(stateData),
-      scope: "profile openid",
-    };
-
-    const queryString = new URLSearchParams(params).toString();
-    
-    window.location.href = `${lineLoginUrl}?${queryString}`;
+    // เปลี่ยนจากการสร้าง URL เอง เป็นการเรียก API ของเราแทน
+    window.location.href = `/api/auth/login?machine=${selectedMachine}`;
   };
 
   const machines = [1, 2, 3, 4];
@@ -38,7 +22,7 @@ export default function HomePage() {
       <div className="card">
         <h1>🧺 Washing & Drying 🧺</h1>
         <p>ร้านซัก-อบ จบครบที่เดียว หน้าโลตัสอินทร์</p>
-      
+
       <div className="machine-selection">
         <h2>กรุณาเลือกเครื่องซักผ้าของคุณ</h2>
         <div className="machine-buttons">
