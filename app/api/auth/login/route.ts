@@ -26,7 +26,7 @@ export function GET(request: NextRequest) {
   const queryString = new URLSearchParams(params).toString();
 
   // บรรทัดนี้คือบรรทัดสำคัญที่แก้ไขให้ถูกต้องแล้ว
-  const finalUrl = `<span class="math-inline">\{lineLoginUrl\}?</span>{queryString}`; 
+  const finalUrl = `${lineLoginUrl}?${queryString}`; 
 
   // ส่งผู้ใช้ต่อไปยังหน้า LINE Login
   return NextResponse.redirect(finalUrl);
