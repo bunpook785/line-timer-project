@@ -1,25 +1,30 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import admin from 'firebase-admin';
+
+// --- ส่วนเริ่มต้นการเชื่อมต่อ Firebase ---
+// ตรวจสอบว่าเคยเชื่อมต่อแล้วหรือยัง ถ้ายังไม่เคย ให้เชื่อมต่อใหม่
+if (!admin.apps.length) {
+  // นำข้อมูล Service Account จาก Environment Variable มาใช้งาน
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!);
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
+const db = admin.firestore();
+// --- สิ้นสุดส่วนการเชื่อมต่อ ---
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const stateString = searchParams.get('state');
 
+  if (!code) {
+    console.error("Authorization code not found.");
+    return NextResponse.redirect(new URL('/?error=NoCode', request.url));
+  }
+
   try {
-    // --- DEBUGGING BLOCK START ---
-    console.log("--- STARTING DEBUG LOG ---");
-    console.log("This is the special debug version.");
-    console.log("1. Received code:", code ? "YES" : "NO, Code is missing!");
-    console.log("2. CALLBACK_URL from Vercel env:", process.env.CALLBACK_URL);
-    console.log("3. CHANNEL_ID from Vercel env:", process.env.NEXT_PUBLIC_LINE_CHANNEL_ID);
-    console.log("4. CHANNEL_SECRET from Vercel env:", process.env.LINE_CHANNEL_SECRET ? "Exists" : "MISSING or empty!");
-    console.log("--- ENDING DEBUG LOG ---");
-    // --- DEBUGGING BLOCK END ---
-
-    if (!code) {
-      throw new Error("No authorization code received from LINE.");
-    }
-
+    // 1. แลก code เป็น Access Token
     const tokenUrl = 'https://api.line.me/oauth2/v2.1/token';
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -36,22 +41,32 @@ export async function GET(request: NextRequest) {
     });
 
     const tokens = await response.json();
+    if (!response.ok) throw new Error(tokens.error_description || 'Failed to exchange token');
 
-    if (!response.ok) {
-      console.error("LINE API Error Response:", tokens);
-      throw new Error(tokens.error_description || 'Failed to exchange token');
-    }
-
+    // 2. ถอดรหัส id_token เพื่อเอา User ID
     const idToken = tokens.id_token;
     const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
     const userId = payload.sub;
+
+    // 3. ดึงหมายเลขเครื่องที่เลือก
     const originalState = JSON.parse(stateString || '{}');
     const machine = originalState.machine;
 
-    console.log('--- Login Success! ---');
-    console.log('User ID:', userId);
-    console.log('Selected Machine:', machine);
+    // --- ส่วนใหม่: บันทึกข้อมูลลง Firestore ---
+    console.log('Saving timer to Firestore...');
+    const washDurationMinutes = 25;
+    const endTime = new Date(Date.now() + washDurationMinutes * 60 * 1000);
 
+    await db.collection('timers').add({
+      user_id: userId,
+      machine_id: machine,
+      end_time: endTime,
+      status: 'pending' // สถานะเริ่มต้นคือ 'รอดำเนินการ'
+    });
+    console.log('Successfully saved timer for user:', userId);
+    // --- สิ้นสุดส่วนใหม่ ---
+
+    // 4. ส่งต่อไปหน้า "สำเร็จ"
     const successUrl = new URL(`/success?machine=${machine}`, request.url);
     return NextResponse.redirect(successUrl);
 
