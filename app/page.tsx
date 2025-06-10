@@ -74,5 +74,6 @@ export default function HomePage() {
         (ระบบจะขออนุญาตเข้าถึงโปรไฟล์ LINE ของคุณเพื่อใช้ในการส่งข้อความ)
       </p>
     </div>
+  </div>
   );
 }
