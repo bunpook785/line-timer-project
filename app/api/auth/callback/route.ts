@@ -1,28 +1,24 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const stateString = searchParams.get('state');
 
-  if (!code) {
-    return NextResponse.redirect(new URL('/?error=NoCode', request.url));
-  }
-
   try {
     // --- DEBUGGING BLOCK START ---
     // บล็อกนี้จะพิมพ์ทุกอย่างที่เราใช้ ออกมาใน Log ของ Vercel
     console.log("--- STARTING DEBUG LOG ---");
-    console.log("Attempting to exchange token with these values:");
-    console.log("1. grant_type:", 'authorization_code');
-    console.log("2. code:", code ? "Exists (รหัสลับมีอยู่จริง)" : "MISSING!");
-    console.log("3. redirect_uri (from env):", process.env.CALLBACK_URL);
-    console.log("4. client_id (from env):", process.env.NEXT_PUBLIC_LINE_CHANNEL_ID);
-    // เราจะไม่พิมพ์ client_secret ออกมาเพื่อความปลอดภัย
-    console.log("5. client_secret (from env):", process.env.LINE_CHANNEL_SECRET ? "Exists and is set" : "MISSING or empty!");
+    console.log("This is the special debug version.");
+    console.log("1. Received code:", code ? "YES" : "NO, Code is missing!");
+    console.log("2. CALLBACK_URL from Vercel env:", process.env.CALLBACK_URL);
+    console.log("3. CHANNEL_ID from Vercel env:", process.env.NEXT_PUBLIC_LINE_CHANNEL_ID);
+    console.log("4. CHANNEL_SECRET from Vercel env:", process.env.LINE_CHANNEL_SECRET ? "Exists" : "MISSING or empty!");
     console.log("--- ENDING DEBUG LOG ---");
     // --- DEBUGGING BLOCK END ---
+
+    if (!code) {
+      throw new Error("No authorization code received from LINE.");
+    }
 
     const tokenUrl = 'https://api.line.me/oauth2/v2.1/token';
     const params = new URLSearchParams({
@@ -42,9 +38,8 @@ export async function GET(request: NextRequest) {
     const tokens = await response.json();
 
     if (!response.ok) {
-      // ถ้าล้มเหลว ให้พิมพ์ error ที่ได้รับจาก LINE ออกมาด้วย
-      console.error("Failed to get access token from LINE:", tokens);
-      throw new Error(tokens.error_description || 'Failed to fetch access token');
+      console.error("LINE API Error Response:", tokens);
+      throw new Error(tokens.error_description || 'Failed to exchange token');
     }
 
     const idToken = tokens.id_token;
@@ -53,7 +48,7 @@ export async function GET(request: NextRequest) {
     const originalState = JSON.parse(stateString || '{}');
     const machine = originalState.machine;
 
-    console.log('--- Success! ---');
+    console.log('--- Login Success! ---');
     console.log('User ID:', userId);
     console.log('Selected Machine:', machine);
 
@@ -61,7 +56,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(successUrl);
 
   } catch (error) {
-    console.error('CRITICAL ERROR in callback process:', error);
+    console.error("CRITICAL ERROR in callback process:", error);
     const errorUrl = new URL('/?error=CallbackFailed', request.url);
     return NextResponse.redirect(errorUrl);
   }
