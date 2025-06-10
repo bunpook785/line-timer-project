@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Kanit } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const kanit = Kanit({ 
+  subsets: ["latin", "thai"], 
+  weight: ["300", "400", "600"] 
+});
 
 export const metadata: Metadata = {
-  title: "Timer Project",
-  description: "LINE Timer Notification Project",
+  title: "Washing & Drying - แจ้งเตือนซักผ้าอัตโนมัติ",
+  description: "ระบบแจ้งเตือนอัตโนมัติเมื่อผ้าซักเสร็จ สำหรับร้าน Washing & Drying",
 };
 
 export default function RootLayout({
@@ -16,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th">
-      <body className={inter.className}>{children}</body>
+      <body className={kanit.className}>{children}</body>
     </html>
   );
 }
