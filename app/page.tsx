@@ -35,10 +35,9 @@ export default function HomePage() {
 
   return (
     <div className="container">
-      <div className="header-section">
+      <div className="card">
         <h1>🧺 Washing & Drying 🧺</h1>
         <p>ร้านซัก-อบ จบครบที่เดียว หน้าโลตัสอินทร์</p>
-      </div>
       
       <div className="machine-selection">
         <h2>กรุณาเลือกเครื่องซักผ้าของคุณ</h2>
@@ -68,7 +67,7 @@ export default function HomePage() {
           alt="LINE icon"
           className="line-icon"
         />
-        เริ่มจับเวลา 25 นาที (ด้วย LINE)
+        รับการแจ้งเตือนหลังซักผ้าเสร็จ
       </button>
 
       <p className="footer-note">
