@@ -6,14 +6,24 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code');
   const stateString = searchParams.get('state');
 
-  // ถ้า LINE ไม่ได้ส่ง code กลับมา ให้ไปหน้าแรก
   if (!code) {
-    console.error("Authorization code not found.");
     return NextResponse.redirect(new URL('/?error=NoCode', request.url));
   }
 
   try {
-    // 1. นำ code ไปแลกเป็น Access Token
+    // --- DEBUGGING BLOCK START ---
+    // บล็อกนี้จะพิมพ์ทุกอย่างที่เราใช้ ออกมาใน Log ของ Vercel
+    console.log("--- STARTING DEBUG LOG ---");
+    console.log("Attempting to exchange token with these values:");
+    console.log("1. grant_type:", 'authorization_code');
+    console.log("2. code:", code ? "Exists (รหัสลับมีอยู่จริง)" : "MISSING!");
+    console.log("3. redirect_uri (from env):", process.env.CALLBACK_URL);
+    console.log("4. client_id (from env):", process.env.NEXT_PUBLIC_LINE_CHANNEL_ID);
+    // เราจะไม่พิมพ์ client_secret ออกมาเพื่อความปลอดภัย
+    console.log("5. client_secret (from env):", process.env.LINE_CHANNEL_SECRET ? "Exists and is set" : "MISSING or empty!");
+    console.log("--- ENDING DEBUG LOG ---");
+    // --- DEBUGGING BLOCK END ---
+
     const tokenUrl = 'https://api.line.me/oauth2/v2.1/token';
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -25,25 +35,21 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params,
     });
 
     const tokens = await response.json();
 
     if (!response.ok) {
-      console.error("Failed to get access token:", tokens);
+      // ถ้าล้มเหลว ให้พิมพ์ error ที่ได้รับจาก LINE ออกมาด้วย
+      console.error("Failed to get access token from LINE:", tokens);
       throw new Error(tokens.error_description || 'Failed to fetch access token');
     }
 
-    // 2. ถอดรหัส id_token เพื่อเอา User ID
     const idToken = tokens.id_token;
     const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
-    const userId = payload.sub; // 'sub' คือ User ID
-
-    // 3. ดึงหมายเลขเครื่องที่เลือกลับมาจาก state
+    const userId = payload.sub;
     const originalState = JSON.parse(stateString || '{}');
     const machine = originalState.machine;
 
@@ -51,14 +57,11 @@ export async function GET(request: NextRequest) {
     console.log('User ID:', userId);
     console.log('Selected Machine:', machine);
 
-    // *** ในอนาคต เราจะบันทึก userId, machine และเวลา ลงฐานข้อมูลตรงนี้ ***
-
-    // 4. ส่งต่อไปหน้า "สำเร็จ" พร้อมบอกหมายเลขเครื่อง
     const successUrl = new URL(`/success?machine=${machine}`, request.url);
     return NextResponse.redirect(successUrl);
 
   } catch (error) {
-    console.error('Error in LINE callback process:', error);
+    console.error('CRITICAL ERROR in callback process:', error);
     const errorUrl = new URL('/?error=CallbackFailed', request.url);
     return NextResponse.redirect(errorUrl);
   }
