@@ -1,3 +1,4 @@
+import { type NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -6,7 +7,6 @@ export async function GET(request: NextRequest) {
 
   try {
     // --- DEBUGGING BLOCK START ---
-    // บล็อกนี้จะพิมพ์ทุกอย่างที่เราใช้ ออกมาใน Log ของ Vercel
     console.log("--- STARTING DEBUG LOG ---");
     console.log("This is the special debug version.");
     console.log("1. Received code:", code ? "YES" : "NO, Code is missing!");
