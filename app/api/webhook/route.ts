@@ -13,7 +13,7 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 const machineDurations: { [key: number]: number } = {
-  1: 25, 2: 25, 3: 30, 4: 45,
+  1: 1, 2: 25, 3: 30, 4: 45,
 };
 
 async function replyMessage(replyToken: string, text: string) {
