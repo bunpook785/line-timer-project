@@ -8,57 +8,68 @@ if (!admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-  } catch (e) {
-    console.error("Firebase Admin initialization error", e);
-  }
+  } catch (e) { console.error("Firebase Admin initialization error", e); }
 }
 const db = admin.firestore();
 
-// --- TEMPORARY DEBUGGING - INSECURE ---
-// เราจะใส่ Channel Secret ของคุณตรงนี้เพื่อทดสอบ
-const HARDCODED_CHANNEL_SECRET = "39fe05a9b033bc8ffe6e13a99d7a0b4b"; 
-// --- END OF TEMPORARY DEBUGGING ---
+const machineDurations: { [key: number]: number } = {
+  1: 25, 2: 25, 3: 30, 4: 45,
+};
+
+async function replyMessage(replyToken: string, text: string) {
+  const replyUrl = 'https://api.line.me/v2/bot/message/reply';
+  const accessToken = process.env.LINE_MESSAGING_TOKEN!;
+  const message = {
+    replyToken: replyToken,
+    messages: [{ type: 'text', text: text }],
+  };
+  const response = await fetch(replyUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(message),
+  });
+  if (!response.ok) {
+    console.error("Failed to send reply message:", await response.json());
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("--- HARDCODED SECRET TEST START ---");
     const body = await request.text();
     const signature = request.headers.get('x-line-signature') || '';
-
-    const hash = crypto.createHmac('sha256', HARDCODED_CHANNEL_SECRET).update(body).digest('base64');
+    const channelSecret = process.env.LINE_MESSAGING_CHANNEL_SECRET!;
+    const hash = crypto.createHmac('sha256', channelSecret).update(body).digest('base64');
 
     if (hash !== signature) {
-      console.error("Signature validation FAILED even with hardcoded secret.");
-      return new NextResponse("Unauthorized", { status: 401 });
+      throw new Error("Signature validation failed!");
     }
-
-    console.log("SUCCESS: Signature validation PASSED with hardcoded secret!");
 
     const events = JSON.parse(body).events;
     for (const event of events) {
       if (event.type === 'message' && event.message.type === 'text') {
+        const userId = event.source.userId;
+        const userMessage = event.message.text.trim();
         const replyToken = event.replyToken;
-        // แค่ตอบกลับไปง่ายๆ เพื่อดูว่าทำงานได้หรือไม่
-        const replyUrl = 'https://api.line.me/v2/bot/message/reply';
-        const accessToken = process.env.LINE_MESSAGING_TOKEN!;
-        const message = {
-          replyToken: replyToken,
-          messages: [{ type: 'text', text: 'ทดสอบสำเร็จ! Webhook ทำงานแล้ว' }],
-        };
-        await fetch(replyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(message),
-        });
+        const machineId = parseInt(userMessage, 10);
+
+        if (userId && !isNaN(machineId) && machineDurations[machineId]) {
+          const duration = machineDurations[machineId];
+          const endTime = new Date(Date.now() + duration * 60 * 1000);
+          await db.collection('timers').add({
+            user_id: userId, machine_id: machineId, end_time: endTime, status: 'pending',
+          });
+          await replyMessage(replyToken, `รับทราบค่ะ! ✅\nเริ่มจับเวลา ${duration} นาทีสำหรับเครื่องหมายเลข ${machineId} แล้วค่ะ`);
+        } else {
+          await replyMessage(replyToken, 'ขออภัยค่ะ ไม่พบหมายเลขเครื่องที่คุณระบุ กรุณาพิมพ์เฉพาะตัวเลข 1, 2, 3 หรือ 4 ค่ะ');
+        }
       }
     }
     return NextResponse.json({ status: "ok" });
-
   } catch (error) {
-    console.error("ERROR in hardcoded test handler:", error);
+    console.error("Error in webhook handler:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
