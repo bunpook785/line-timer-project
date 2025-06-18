@@ -15,7 +15,7 @@ const db = admin.firestore();
 // --- สิ้นสุดส่วนการเชื่อมต่อ ---
 
 const machineDurations: { [key: number]: number } = {
-  1: 1, // ทดสอบ 1 นาที
+  1: 5, // ทดสอบ 1 นาที
   2: 25,
   3: 30,
   4: 45,
