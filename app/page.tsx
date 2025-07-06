@@ -1,7 +1,7 @@
 // โค้ดนี้เป็นแบบง่าย ไม่ต้องมี "use client" แล้วครับ
 export default function HomePage() {
   // สร้างลิงก์สำหรับเพิ่มเพื่อน LINE Official Account ของคุณ
-  const lineAddFriendUrl = "https://line.me/R/ti/p/@027yxvoh";
+  const lineAddFriendUrl = "https://line.me/R/ti/p/@898rsjqj";
 
   return (
     <div className="container">
